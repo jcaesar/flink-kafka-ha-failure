@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# Wait for all brokers
+for b in 1 2; do
+	while ! timeout --kill-after=5 3 kafkacat -b kafka$b:9091 -L &>/dev/null; do
+		sleep 1
+	done
+done
+
+exec flink run -m jobmanager1:8081 job.jar
+#flink run -m jobmanager1:8081 job.jar sheep-even sheep-odd &
+#flink run -m jobmanager1:8081 job.jar sheep-odd sheep-even &
+#
+#sleep 10
+#echo "Good night" | kafkacat -b kafka1:9091 -P -t sheep-even
+#
+#wait

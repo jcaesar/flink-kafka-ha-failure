@@ -1,0 +1,100 @@
+version: '3.5'
+
+services:
+  zookeeper1:
+    image: zookeeper:3.4
+    hostname: zookeeper1
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=0.0.0.0:2888:3888
+
+  kafka1: &kafka
+    image: wurstmeister/kafka:2.12-2.5.0
+    ports:
+      - "${DC_KAFKA1_PORT-9092:}9092"
+    environment: &kafka-env
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper1:2181
+      KAFKA_ADVERTISED_LISTENERS: INTERBROKER://:9090,INSIDE://:9091,OBSERVED://${DC_KAFKA_OBSERVED_HOST-localhost}:9092
+      KAFKA_LISTENERS: INTERBROKER://:9090,INSIDE://:9091,OBSERVED://:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERBROKER:PLAINTEXT,INSIDE:PLAINTEXT,OBSERVED:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERBROKER
+      KAFKA_HEAP_OPTS: "-Xmx256M -Xms256M"
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka"
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 2
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+    depends_on:
+      - zookeeper1
+    command: |
+      bash -c "
+        sleep 5;
+        start-kafka.sh &
+        p=$$!;
+        sleep 60;
+        echo SLEEEP!
+        kill -STOP $$p;
+        wait
+      "
+  kafka2:
+    <<: *kafka
+    ports:
+      - "${DC_KAFKA_PORT-9093:}9093"
+    environment:
+      <<: *kafka-env
+      KAFKA_ADVERTISED_LISTENERS: INTERBROKER://:9090,INSIDE://:9091,OBSERVED://${DC_KAFKA_OBSERVED_HOST-localhost}:9093
+      KAFKA_LISTENERS: INTERBROKER://:9090,INSIDE://:9091,OBSERVED://:9093
+    #command: bash -c "sleep 5 && start-kafka.sh"
+    command: start-kafka.sh
+  #kafka3:
+  #  <<: *kafka
+  #  ports:
+  #    - "${DC_KAFKA_PORT-9094:}9094"
+  #  environment:
+  #    <<: *kafka-env
+  #    KAFKA_ADVERTISED_LISTENERS: INTERBROKER://:9090,INSIDE://:9091,OBSERVED://${DC_KAFKA_OBSERVED_HOST-localhost}:9094
+  #    KAFKA_LISTENERS: INTERBROKER://:9090,INSIDE://:9091,OBSERVED://:9094
+  #  #command: bash -c "sleep 5 && start-kafka.sh"
+  #  command: start-kafka.sh
+
+  jobmanager1:
+    image: flink:1.10.0-scala_2.11 
+    expose:
+      - "6123"
+    ports:
+      - "${DC_FLINK_PORT-8081:}8081"
+    command: jobmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager1
+
+  taskmanager1: &taskmanager
+    image: flink:1.10.0-scala_2.11 
+    expose:
+      - "6121"
+      - "6122"
+    # prometheus
+      - "9101"
+    depends_on:
+      - jobmanager1
+    tmpfs: [ '/tmp:exec,mode=777' ]
+    command: taskmanager
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager1
+      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=3
+  taskmanager2: *taskmanager
+
+  job:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args: &proxy
+        http_proxy: ${http_proxy-}
+        https_proxy: ${https_proxy-}
+        mavensonatypenexus: ${mavensonatypenexus-}
+    depends_on:
+      - jobmanager1
+      - taskmanager1
+      - taskmanager2
+      - kafka1
+      - kafka2
