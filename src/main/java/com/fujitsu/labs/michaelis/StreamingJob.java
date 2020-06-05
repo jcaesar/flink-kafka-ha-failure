@@ -59,12 +59,12 @@ import java.util.stream.IntStream;
  */
 public class StreamingJob {
 
-	static final int topics = 3;
-	static final int split = 3;
+	static final int topics = 10;
+	static final int split = 10;
 	static final int brokers = 2; // Interestingly, it's fine for one broker to be unreachable initially - try setting this to 3 without adding another broker
 
 	public static String brokerList() {
-		return IntStream.range(0, brokers).mapToObj(i -> "kafka" + i + ":9091").collect(Collectors.joining(","));
+		return IntStream.rangeClosed(1, brokers).mapToObj(i -> "kafka" + i + ":9091").collect(Collectors.joining(","));
 	}
 
 	public static void main(String[] args) throws Exception {
