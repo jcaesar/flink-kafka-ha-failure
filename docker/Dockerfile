@@ -18,12 +18,11 @@ COPY . .
 RUN mvn -B clean package \
 	&& mv target/electric* /core/job.jar
 
-FROM flink:1.10.0-scala_2.11
+FROM maven:3.5.3-jdk-8
 RUN apt-get update && apt-get -y install --no-install-recommends kafkacat && rm -rf /lib/dpkg
-# Good idea to keep these two lines in sync with the matching ones in flink.Dockerfile
 
-RUN mkdir /job && chown flink:flink /job
-USER flink
+RUN mkdir /job && useradd -d /job job && chown job:job /job
+USER job
 
 WORKDIR /job/
 ENTRYPOINT ["entrypoint"]

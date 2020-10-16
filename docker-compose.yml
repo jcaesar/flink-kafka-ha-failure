@@ -47,42 +47,6 @@ services:
       KAFKA_LISTENERS: INTERBROKER://:9090,INSIDE://:9091,OBSERVED://:9093
     #command: bash -c "sleep 5 && start-kafka.sh"
     command: start-kafka.sh
-  #kafka3:
-  #  <<: *kafka
-  #  ports:
-  #    - "${DC_KAFKA_PORT-9094:}9094"
-  #  environment:
-  #    <<: *kafka-env
-  #    KAFKA_ADVERTISED_LISTENERS: INTERBROKER://:9090,INSIDE://:9091,OBSERVED://${DC_KAFKA_OBSERVED_HOST-localhost}:9094
-  #    KAFKA_LISTENERS: INTERBROKER://:9090,INSIDE://:9091,OBSERVED://:9094
-  #  #command: bash -c "sleep 5 && start-kafka.sh"
-  #  command: start-kafka.sh
-
-  jobmanager1:
-    image: flink:1.10.0-scala_2.11 
-    expose:
-      - "6123"
-    ports:
-      - "${DC_FLINK_PORT-8081:}8081"
-    command: jobmanager
-    environment:
-      - JOB_MANAGER_RPC_ADDRESS=jobmanager1
-
-  taskmanager1: &taskmanager
-    image: flink:1.10.0-scala_2.11 
-    expose:
-      - "6121"
-      - "6122"
-    # prometheus
-      - "9101"
-    depends_on:
-      - jobmanager1
-    tmpfs: [ '/tmp:exec,mode=777' ]
-    command: taskmanager
-    environment:
-      - JOB_MANAGER_RPC_ADDRESS=jobmanager1
-      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=3
-  taskmanager2: *taskmanager
 
   job:
     build:
@@ -93,8 +57,5 @@ services:
         https_proxy: ${https_proxy-}
         mavensonatypenexus: ${mavensonatypenexus-}
     depends_on:
-      - jobmanager1
-      - taskmanager1
-      - taskmanager2
       - kafka1
       - kafka2

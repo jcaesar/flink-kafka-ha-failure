@@ -9,11 +9,4 @@ for b in 1 2; do
 	done
 done
 
-exec flink run -m jobmanager1:8081 job.jar
-#flink run -m jobmanager1:8081 job.jar sheep-even sheep-odd &
-#flink run -m jobmanager1:8081 job.jar sheep-odd sheep-even &
-#
-#sleep 10
-#echo "Good night" | kafkacat -b kafka1:9091 -P -t sheep-even
-#
-#wait
+exec java -jar job.jar
